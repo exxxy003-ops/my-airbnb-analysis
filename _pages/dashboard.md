@@ -145,7 +145,7 @@ permalink: /dashboard/
 <div class="db-section">
   <div class="db-section-title">Geographic Distribution</div>
   <div class="map-wrap">
-    <iframe src="/charts/dashboard_map.html" title="NYC Airbnb Distribution Map"></iframe>
+    <iframe src="{{ '/charts/dashboard_map.html' | relative_url }}" title="NYC Airbnb Distribution Map"></iframe>
   </div>
 </div>
 
@@ -154,10 +154,10 @@ permalink: /dashboard/
   <div class="db-section-title">Hosting Trends</div>
   <div class="chart-grid">
     <div class="chart-card">
-      <iframe src="/charts/hvplot_host_year.html" title="Listings by Host Year"></iframe>
+      <iframe src="{{ '/charts/hvplot_host_year.html' | relative_url }}" title="Listings by Host Year"></iframe>
     </div>
     <div class="chart-card">
-      <iframe src="/charts/hvplot_response_time.html" title="Host Response Time"></iframe>
+      <iframe src="{{ '/charts/hvplot_response_time.html' | relative_url }}" title="Host Response Time"></iframe>
     </div>
   </div>
 </div>
@@ -166,10 +166,10 @@ permalink: /dashboard/
   <div class="db-section-title">Host Verification &amp; Booking Behavior</div>
   <div class="chart-grid">
     <div class="chart-card">
-      <iframe src="/charts/hvplot_host_identity.html" title="Host Identity Verification"></iframe>
+      <iframe src="{{ '/charts/hvplot_host_identity.html' | relative_url }}" title="Host Identity Verification"></iframe>
     </div>
     <div class="chart-card">
-      <iframe src="/charts/hvplot_instant_bookable.html" title="Instant Bookable Listings"></iframe>
+      <iframe src="{{ '/charts/hvplot_instant_bookable.html' | relative_url }}" title="Instant Bookable Listings"></iframe>
     </div>
   </div>
 </div>
@@ -178,6 +178,6 @@ permalink: /dashboard/
 <div class="db-section">
   <div class="db-section-title">Price Prediction — Feature Importance</div>
   <div class="chart-card-full">
-    <iframe src="/charts/importance_bar.html" title="Random Forest Feature Importance"></iframe>
+    <iframe src="{{ '/charts/importance_bar.html' | relative_url }}" title="Random Forest Feature Importance"></iframe>
   </div>
 </div>
