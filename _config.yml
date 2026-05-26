@@ -157,6 +157,7 @@ include:
   - .htaccess
   - _pages
   - altair
+  - charts
 exclude:
   - "*.sublime-project"
   - "*.sublime-workspace"
