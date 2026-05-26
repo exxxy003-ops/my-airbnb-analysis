@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYC Airbnb Distribution Map</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Leaflet MarkerCluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    #map { width: 100%; height: 100vh; }
+
+    /* Loading overlay */
+    #loading {
+      position: absolute; inset: 0; z-index: 9999;
+      background: #0d1117;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 16px; color: #8b949e;
+    }
+    #loading .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid #21262d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 14px; letter-spacing: 0.05em; }
+
+    /* Legend */
+    .map-legend {
+      background: rgba(13, 17, 23, 0.92);
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 12px 16px;
+      color: #c9d1d9;
+      font-size: 12px;
+      line-height: 1.6;
+      min-width: 160px;
+    }
+    .map-legend h4 {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8b949e;
+      margin-bottom: 8px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .legend-swatch {
+      width: 12px; height: 12px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* Tooltip */
+    .leaflet-tooltip {
+      background: rgba(13, 17, 23, 0.95) !important;
+      border: 1px solid #30363d !important;
+      border-radius: 6px !important;
+      color: #c9d1d9 !important;
+      font-size: 12px !important;
+      padding: 8px 12px !important;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+    .tt-name { font-weight: 600; font-size: 13px; color: #f0f6fc; margin-bottom: 5px; }
+    .tt-row { display: flex; justify-content: space-between; gap: 16px; color: #8b949e; }
+    .tt-row span:last-child { color: #c9d1d9; font-weight: 500; }
+
+    /* Layer control */
+    .leaflet-control-layers {
+      background: rgba(13, 17, 23, 0.92) !important;
+      border: 1px solid #30363d !important;
+      border-radius: 8px !important;
+      color: #c9d1d9 !important;
+      font-size: 13px !important;
+    }
+    .leaflet-control-layers-toggle {
+      background-color: rgba(13, 17, 23, 0.92) !important;
+    }
+    .leaflet-control-layers label { color: #c9d1d9 !important; }
+
+    /* Marker cluster */
+    .marker-cluster-small,
+    .marker-cluster-medium,
+    .marker-cluster-large { background-color: rgba(88, 166, 255, 0.25) !important; }
+    .marker-cluster-small div,
+    .marker-cluster-medium div,
+    .marker-cluster-large div {
+      background-color: rgba(88, 166, 255, 0.55) !important;
+      color: #f0f6fc !important;
+      font-weight: 600 !important;
+    }
+
+    /* Zoom control */
+    .leaflet-control-zoom a {
+      background: rgba(13, 17, 23, 0.92) !important;
+      border-color: #30363d !important;
+      color: #8b949e !important;
+    }
+    .leaflet-control-zoom a:hover { color: #f0f6fc !important; }
+  </style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Loading NYC Airbnb data…</p>
+</div>
+
+<div id="map"></div>
+
+<script>
+const CLUSTER_COLORS = ['#e05c5c', '#58a6ff', '#3fb950', '#d29922', '#bc8cff'];
+const CLUSTER_LABELS = [
+  'Cluster 0 — Affordable Outer',
+  'Cluster 1 — Mid-Range',
+  'Cluster 2 — High-Value',
+  'Cluster 3 — Budget Dense',
+  'Cluster 4 — Premium Core'
+];
+
+// Init map
+const map = L.map('map', {
+  center: [40.72, -73.97],
+  zoom: 11,
+  zoomControl: true,
+  preferCanvas: true
+});
+
+// Dark tile layer
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+  subdomains: 'abcd',
+  maxZoom: 19
+}).addTo(map);
+
+function getColor(label) {
+  return CLUSTER_COLORS[label] || '#8b949e';
+}
+
+// ── Layer A: Neighbourhood Choropleth ────────────────────────────────────────
+async function buildChoropleth() {
+  const resp = await fetch('altair_cluster.json');
+  const spec = await resp.json();
+
+  // The GeoJSON is stored as a stringified value under the datasets key
+  const datasetsKey = Object.keys(spec.datasets)[0];
+  const geojson = JSON.parse(spec.datasets[datasetsKey]);
+
+  const choropleth = L.geoJSON(geojson, {
+    style(feature) {
+      return {
+        fillColor: getColor(feature.properties.label),
+        fillOpacity: 0.65,
+        color: '#21262d',
+        weight: 1
+      };
+    },
+    onEachFeature(feature, layer) {
+      const p = feature.properties;
+      const price = p.price_per_person != null ? '$' + p.price_per_person.toFixed(0) : 'N/A';
+      const rating = p.review_scores_rating != null ? p.review_scores_rating.toFixed(1) : 'N/A';
+      const count = p.count != null ? p.count.toLocaleString() : 'N/A';
+
+      layer.bindTooltip(`
+        <div class="tt-name">${p.neighbourhood}</div>
+        <div class="tt-row"><span>Listings</span><span>${count}</span></div>
+        <div class="tt-row"><span>Avg price/person</span><span>${price}</span></div>
+        <div class="tt-row"><span>Avg rating</span><span>${rating}</span></div>
+        <div class="tt-row"><span>Cluster</span><span>${p.label}</span></div>
+      `, { sticky: true });
+
+      layer.on('mouseover', () => {
+        layer.setStyle({ fillOpacity: 0.88, weight: 2, color: '#58a6ff' });
+        layer.bringToFront();
+      });
+      layer.on('mouseout', () => choropleth.resetStyle(layer));
+    }
+  });
+
+  return choropleth;
+}
+
+// ── Layer B: Clustered Listing Markers ───────────────────────────────────────
+async function buildMarkers() {
+  const resp = await fetch('folium_cluster.html');
+  const html = await resp.text();
+
+  // Extract coordinates
+  const coordRe = /L\.marker\(\s*\[\s*([\d.-]+)\s*,\s*([\d.-]+)\s*\]/g;
+  // Extract listing titles (sequentially paired with coordinates)
+  const titleRe = /style="width: 100\.0%; height: 100\.0%;">([^<]+)</g;
+
+  const coords = [];
+  let m;
+  while ((m = coordRe.exec(html)) !== null) {
+    coords.push([parseFloat(m[1]), parseFloat(m[2])]);
+  }
+
+  const titles = [];
+  while ((m = titleRe.exec(html)) !== null) {
+    titles.push(m[1].trim());
+  }
+
+  const clusterGroup = L.markerClusterGroup({
+    maxClusterRadius: 50,
+    showCoverageOnHover: false,
+    iconCreateFunction(cluster) {
+      const count = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div><span>${count}</span></div>`,
+        className: `marker-cluster marker-cluster-${count < 10 ? 'small' : count < 100 ? 'medium' : 'large'}`,
+        iconSize: [40, 40]
+      });
+    }
+  });
+
+  coords.forEach(([lat, lng], i) => {
+    const title = titles[i] || 'Airbnb Listing';
+    const marker = L.circleMarker([lat, lng], {
+      radius: 5,
+      fillColor: '#58a6ff',
+      color: '#1f6feb',
+      weight: 1,
+      fillOpacity: 0.75
+    });
+    marker.bindTooltip(`<div class="tt-name">${title}</div>`, { sticky: true });
+    clusterGroup.addLayer(marker);
+  });
+
+  return clusterGroup;
+}
+
+// ── Legend ───────────────────────────────────────────────────────────────────
+const legend = L.control({ position: 'bottomright' });
+legend.onAdd = function() {
+  const div = L.DomUtil.create('div', 'map-legend');
+  div.innerHTML = `<h4>Neighbourhood Clusters</h4>` +
+    CLUSTER_COLORS.map((color, i) =>
+      `<div class="legend-item">
+        <div class="legend-swatch" style="background:${color}"></div>
+        <span>Cluster ${i}</span>
+      </div>`
+    ).join('');
+  return div;
+};
+legend.addTo(map);
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    const [choropleth, markers] = await Promise.all([buildChoropleth(), buildMarkers()]);
+
+    choropleth.addTo(map);
+
+    L.control.layers(
+      {},
+      {
+        '<span style="color:#c9d1d9">Neighbourhood Clusters</span>': choropleth,
+        '<span style="color:#c9d1d9">Listing Markers (4,520)</span>': markers
+      },
+      { collapsed: false, position: 'topright' }
+    ).addTo(map);
+
+    document.getElementById('loading').style.display = 'none';
+  } catch (err) {
+    document.getElementById('loading').innerHTML =
+      `<p style="color:#f85149">Failed to load map data: ${err.message}</p>`;
+  }
+})();
+</script>
+</body>
+</html>
